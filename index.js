@@ -7,7 +7,10 @@ const jwt = require("jsonwebtoken");
 const app = express();
 const port = process.env.PORT || 5165;
 
-const serviceAccount = require("./smart-deals-firebase-admin-key.json");
+const decoded = Buffer.from(process.env.FIREBASE_SERVICE_KEY, "base64").toString("utf8");
+const serviceAccount = JSON.parse(decoded);
+
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -21,44 +24,41 @@ app.use(express.json());
 //   next()
 // }
 
-const verifyFbToken = async (req, res, next) => {
-  if (!req.headers.authorization) {
+const verifyFirebaseToken = async (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
     return res.status(401).send({ message: "unauthorized access" });
   }
-  const token = req.headers.authorization.split(" ")[1];
-  if (!token) {
-    return res.status(401).send({ message: "token not found" });
-  }
-
-  // Verify Id token
+  const token = authorization.split(" ")[1];
   try {
     const decoded = await admin.auth().verifyIdToken(token);
+    console.log("inside the token", decoded);
     req.token_email = decoded.email;
     next();
-  } catch {
-    return res.status(401).send({ message: "unauthorized user detected" });
+  } catch (error) {
+    return res.status(401).send({ message: "unauthorized access" });
   }
 };
 
-  //Verify id token using JWT
-  const verifyJWTToken = (req, res, next) => {
-    const authorization = req.headers.authorization;
-    if(!authorization) {
-      return res.status(401).send({message: 'unauthorized access'})
-    }
-    const token = authorization.split(' ')[1]
-    if(!token) {
-      return res.status(401).send({message: 'unauthorized access'})
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if(err) {
-        return res.status(401).send({message: 'unauthorized access'})
-      }
-      console.log('after decoded', decoded)
-    })
-    next()
+//Verify id token using JWT
+const verifyJWTToken = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).send({ message: "unauthorized access" });
   }
+  const token = authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    console.log("after decoded", decoded);
+  });
+  next();
+};
 
 app.get("/", (req, res) => {
   res.send("Smart deals server is running now");
@@ -133,7 +133,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyFirebaseToken, async (req, res) => {
       const newProduct = req.body;
       const result = await productCollection.insertOne(newProduct);
       res.send(result);
@@ -174,7 +174,7 @@ async function run() {
     // });
 
     // Token verify using firebase
-    app.get("/bids", verifyFbToken, async (req, res) => {
+    app.get("/bids", verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
@@ -190,7 +190,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/products/bids/:productId", verifyFbToken, async (req, res) => {
+    app.get("/products/bids/:productId", verifyFirebaseToken, async (req, res) => {
       const productId = req.params.productId;
       const query = { product: productId };
       const cursor = bidsCollection.find(query).sort({ bid_price: -1 });
@@ -220,10 +220,10 @@ async function run() {
       res.send(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
   }
 }
