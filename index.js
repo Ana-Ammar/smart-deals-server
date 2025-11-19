@@ -32,7 +32,6 @@ const verifyFirebaseToken = async (req, res, next) => {
   const token = authorization.split(" ")[1];
   try {
     const decoded = await admin.auth().verifyIdToken(token);
-    console.log("inside the token", decoded);
     req.token_email = decoded.email;
     next();
   } catch (error) {
@@ -76,7 +75,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const db = client.db("smart_db");
     const productCollection = db.collection("products");
@@ -221,9 +220,9 @@ async function run() {
     });
 
     // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
   }
 }

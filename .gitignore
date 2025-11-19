@@ -3,3 +3,4 @@ node_modules
 smart-deals-firebase-admin-key.json
 encode.js
 vercel.json
+.vercel
